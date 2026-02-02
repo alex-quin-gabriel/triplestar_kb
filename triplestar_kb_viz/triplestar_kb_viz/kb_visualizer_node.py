@@ -22,8 +22,7 @@ class KBVisualizerNode(Node):
 
         # Query configuration
         self.current_query = None  # None means visualize entire store
-        self.update_rate = 5.0
-        self.auto_refresh = True
+        self.update_rate = None  # None means no periodic updates
         self.timer = None
 
         # Declare parameter to get the KB store path
@@ -41,15 +40,12 @@ class KBVisualizerNode(Node):
 
         self.get_logger().info("Triplestar KB Visualizer node created")
 
-        # Initialize timer with default update rate
-        self._create_visualization_timer()
-
     def _create_visualization_timer(self):
         """Create or recreate the visualization timer with current update rate."""
         if self.timer is not None:
             self.destroy_timer(self.timer)
 
-        if self.auto_refresh and self.update_rate > 0:
+        if self.update_rate is not None and self.update_rate > 0:
             self.timer = self.create_timer(
                 self.update_rate,
                 lambda: self.generate_and_publish_visualization(self.current_query),
@@ -65,15 +61,14 @@ class KBVisualizerNode(Node):
             else:
                 self.current_query = request.query
 
-            # Validate update rate
-            if request.update_rate <= 0:
-                response.success = False
-                response.message = "Update rate must be positive"
-                self.get_logger().warn(response.message)
-                return response
-
             # Update configuration
-            self.update_rate = request.update_rate
+            # If update_rate is not set (0 or negative), use default of 1 Hz
+            if request.update_rate > 0:
+                self.update_rate = request.update_rate
+            else:
+                self.update_rate = 1.0
+
+            # Default to True if auto_refresh not explicitly set
             self.auto_refresh = request.auto_refresh
 
             # Recreate timer with new settings
